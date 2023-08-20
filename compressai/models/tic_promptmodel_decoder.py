@@ -108,9 +108,9 @@ class Mask_Gen_Shallow(nn.Module):
         return prob
 
 
-class TIC_PromptModel_first2(nn.Module):
+class TIC_PromptModel_decoder(nn.Module):
     """
-    Modified from TIC (Lu et al., "Transformer-based Image Compression," DCC2022.)
+    Modified from TransTIC
     """
     def __init__(self, N=128, M=192, prompt_config=None, input_resolution=(256,256)):
         super().__init__()
@@ -137,17 +137,25 @@ class TIC_PromptModel_first2(nn.Module):
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))] 
 
         self.mask_down = prompt_config.MASK_DOWNSAMPLE
-        encblock = RSTB_PromptModel
-        ############### Encoder  ###############
-        ############### ga block ###############
-        # add prompt to the first 2 STB
+        # encblock = RSTB_PromptModel
+
         self.g_a0 = conv(3, N, kernel_size=5, stride=2)
-        # prompt in first STB(STB-1)
-        self.g_a0_prompt = Mask_Gen_Shallow(out_channel= N, mid_channel=32)
-        self.g_a0_prompt_layers = nn.ModuleList([conv(N, N, kernel_size=3, stride=self.mask_down) for _ in range(depths[0])])
-        # change RSTB(TIC) to RSTB_PromptModel(TransTIC)
-        # RSTB: Residual Swin Transformer Block
-        self.g_a1 = encblock(dim=N,
+        # self.g_a0_prompt = Mask_Gen_Shallow(out_channel= N, mid_channel=32)
+        # self.g_a0_prompt_layers = nn.ModuleList([conv(N, N, kernel_size=3, stride=self.mask_down) for _ in range(depths[0])])
+        # self.g_a1 = encblock(dim=N,
+        #                 input_resolution=(input_resolution[0]//2, input_resolution[1]//2),
+        #                 depth=depths[0],
+        #                 num_heads=num_heads[0],
+        #                 window_size=window_size,
+        #                 mlp_ratio=mlp_ratio,
+        #                 qkv_bias=qkv_bias, qk_scale=qk_scale,
+        #                 drop=drop_rate, attn_drop=attn_drop_rate,
+        #                 drop_path=dpr[sum(depths[:0]):sum(depths[:1])],
+        #                 norm_layer=norm_layer,
+        #                 use_checkpoint=use_checkpoint,
+        #                 prompt_config= prompt_config
+        # )
+        self.g_a1 = RSTB(dim=N,
                         input_resolution=(input_resolution[0]//2, input_resolution[1]//2),
                         depth=depths[0],
                         num_heads=num_heads[0],
@@ -158,14 +166,25 @@ class TIC_PromptModel_first2(nn.Module):
                         drop_path=dpr[sum(depths[:0]):sum(depths[:1])],
                         norm_layer=norm_layer,
                         use_checkpoint=use_checkpoint,
-                        prompt_config= prompt_config
+                        prompt_config= None
         )
         self.g_a2 = conv(N, N, kernel_size=3, stride=2)
-        # prompt in second STB(STB-2)
-        self.g_a2_prompt = conv(N, N, kernel_size=3, stride=2)
-        self.g_a2_prompt_layers = nn.ModuleList([conv(N, N, kernel_size=3, stride=self.mask_down) for _ in range(depths[1])])
-        
-        self.g_a3 = encblock(dim=N,
+        # self.g_a2_prompt = conv(N, N, kernel_size=3, stride=2)
+        # self.g_a2_prompt_layers = nn.ModuleList([conv(N, N, kernel_size=3, stride=self.mask_down) for _ in range(depths[1])])
+        # self.g_a3 = encblock(dim=N,
+        #                 input_resolution=(input_resolution[0]//4, input_resolution[1]//4),
+        #                 depth=depths[1],
+        #                 num_heads=num_heads[1],
+        #                 window_size=window_size,
+        #                 mlp_ratio=mlp_ratio,
+        #                 qkv_bias=qkv_bias, qk_scale=qk_scale,
+        #                 drop=drop_rate, attn_drop=attn_drop_rate,
+        #                 drop_path=dpr[sum(depths[:1]):sum(depths[:2])],
+        #                 norm_layer=norm_layer,
+        #                 use_checkpoint=use_checkpoint,
+        #                 prompt_config= prompt_config
+        # )
+        self.g_a3 = RSTB(dim=N,
                         input_resolution=(input_resolution[0]//4, input_resolution[1]//4),
                         depth=depths[1],
                         num_heads=num_heads[1],
@@ -176,9 +195,9 @@ class TIC_PromptModel_first2(nn.Module):
                         drop_path=dpr[sum(depths[:1]):sum(depths[:2])],
                         norm_layer=norm_layer,
                         use_checkpoint=use_checkpoint,
-                        prompt_config= prompt_config
+                        prompt_config= None
         )
-        self.g_a4 = conv(N, N, kernel_size=3, stride=2)        
+        self.g_a4 = conv(N, N, kernel_size=3, stride=2)
         self.g_a5 = RSTB(dim=N,
                         input_resolution=(input_resolution[0]//8, input_resolution[1]//8),
                         depth=depths[2],
@@ -206,7 +225,7 @@ class TIC_PromptModel_first2(nn.Module):
                         use_checkpoint=use_checkpoint,
                         prompt_config= None
         )
-        ############### ha block ###############
+
         self.h_a0 = conv(M, N, kernel_size=3, stride=2)
         self.h_a1 = RSTB(dim=N,
                          input_resolution=(input_resolution[0]//32, input_resolution[1]//32),
@@ -233,8 +252,7 @@ class TIC_PromptModel_first2(nn.Module):
                          norm_layer=norm_layer,
                          use_checkpoint=use_checkpoint,
         )
-        ############### Decoder  ###############
-        ############### hs block ###############
+
         depths = depths[::-1]
         num_heads = num_heads[::-1]
         self.h_s0 = RSTB(dim=N,
@@ -264,8 +282,7 @@ class TIC_PromptModel_first2(nn.Module):
         )
         self.h_s3 = deconv(N, M*2, kernel_size=3, stride=2)
         
-        ############### gs block ###############
-        # add prompt to all STBs
+
         decoder_blocks = [RSTB_PromptModel if prompt_config.MODEL_DECODER and nn+1 in prompt_config.DECODER_BLOCK else RSTB for nn in range(4)]
 
         self.g_s0 = decoder_blocks[0](dim=M,
@@ -348,15 +365,17 @@ class TIC_PromptModel_first2(nn.Module):
         attns = []
         if x_size is None:
             x_size = x.shape[2:4]
-        m = self.g_a0_prompt(x)
-        x = self.g_a0(x)
-        m_layers = [prompt_layer(m) for prompt_layer in self.g_a0_prompt_layers]
-        x, attn = self.g_a1(x, m_layers, (x_size[0]//2, x_size[1]//2))
+        # m = self.g_a0_prompt(x) # m is output of extractor
+        x = self.g_a0(x) # output of conv(5,2 d)
+        # m_layers = [prompt_layer(m) for prompt_layer in self.g_a0_prompt_layers] # output of Convs (i.e. Pi)
+        # x, attn = self.g_a1(x, m_layers, (x_size[0]//2, x_size[1]//2))
+        x, attn = self.g_a1(x, (x_size[0]//2, x_size[1]//2))
         attns.append(attn)
         x = self.g_a2(x)
-        m = self.g_a2_prompt(m)
-        m_layers = [prompt_layer(m) for prompt_layer in self.g_a2_prompt_layers]
-        x, attn = self.g_a3(x, m_layers, (x_size[0]//4, x_size[1]//4))
+        # m = self.g_a2_prompt(m)
+        # m_layers = [prompt_layer(m) for prompt_layer in self.g_a2_prompt_layers]
+        # x, attn = self.g_a3(x, m_layers, (x_size[0]//4, x_size[1]//4))
+        x, attn = self.g_a3(x, (x_size[0]//4, x_size[1]//4))
         attns.append(attn)
         x = self.g_a4(x)
         x, attn = self.g_a5(x, (x_size[0]//8, x_size[1]//8))

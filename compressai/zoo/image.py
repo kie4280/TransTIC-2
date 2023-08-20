@@ -38,6 +38,7 @@ from compressai.models import (
     ScaleHyperprior,
     TIC_hp,
     TIC_PromptModel_first2,
+    TIC_PromptModel_decoder,
 )
 
 from .pretrained import load_pretrained
@@ -51,6 +52,7 @@ __all__ = [
     "cheng2020_attn",
     'tic_hp',
     'tic_promptmodel_first2',
+    'tic_promptmodel_decoder',
 ]
 
 model_architectures = {
@@ -62,6 +64,7 @@ model_architectures = {
     "cheng2020-attn": Cheng2020Attention,
     "tic_hp": TIC_hp,
     'tic_promptmodel_first2': TIC_PromptModel_first2,
+    'tic_promptmodel_decoder': TIC_PromptModel_decoder,
 }
 
 root_url = "https://compressai.s3.amazonaws.com/models/v1"
@@ -269,6 +272,16 @@ cfgs = {
         7: (192, 320),
         8: (192, 320),
     },
+    'tic_promptmodel_decoder': {
+        1: (128, 192),
+        2: (128, 192),
+        3: (128, 192),
+        4: (128, 192),
+        5: (192, 320),
+        6: (192, 320),
+        7: (192, 320),
+        8: (192, 320),
+    }
 }
 
 
@@ -472,3 +485,14 @@ def tic_promptmodel_first2(quality, metric="mse", pretrained=False, progress=Tru
         raise ValueError(f'Invalid quality "{quality}", should be between (1, 8)')
 
     return _load_model("tic_promptmodel_first2", metric, quality, pretrained, progress, **kwargs)
+
+
+def tic_promptmodel_decoder(quality, metric="mse", pretrained=False, progress=True, **kwargs):
+    
+    if metric not in ("mse", "ms-ssim"):
+        raise ValueError(f'Invalid metric "{metric}"')
+
+    if quality < 1 or quality > 8:
+        raise ValueError(f'Invalid quality "{quality}", should be between (1, 8)')
+
+    return _load_model("tic_promptmodel_decoder", metric, quality, pretrained, progress, **kwargs)

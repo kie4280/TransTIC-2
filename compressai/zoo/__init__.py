@@ -36,6 +36,7 @@ from .image import (
     mbt2018_mean,
     tic_hp,
     tic_promptmodel_first2,
+    tic_promptmodel_decoder,
 )
 from .pretrained import load_pretrained as load_state_dict
 from .video import ssf2020
@@ -49,6 +50,7 @@ image_models = {
     "cheng2020-attn": cheng2020_attn,
     'tic_hp':tic_hp,
     'tic_promptmodel_first2': tic_promptmodel_first2,
+    'tic_promptmodel_decoder': tic_promptmodel_decoder,
 }
 
 video_models = {

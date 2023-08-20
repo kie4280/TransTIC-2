@@ -79,6 +79,7 @@ class RateDistortionLoss(nn.Module):
         )
         out["mse_loss"] = self.mse(output["x_hat"], target)
         out["loss"] = self.lmbda * 255**2 * out["mse_loss"] + out["bpp_loss"]
+        # out["rdloss"] = self.lmbda * 255**2 * out["mse_loss"] + out["bpp_loss"]
         
         out["psnr"] = self.psnr(torch.clamp(output["x_hat"],0,1), target)
 
@@ -152,15 +153,25 @@ def configure_optimizers(net, args):
     """Separate parameters for the main optimizer and the auxiliary optimizer.
     Return two optimizers"""
 
+    # parameters = {
+    #     n
+    #     for n, p in net.named_parameters()
+    #     if not n.endswith(".quantiles") and p.requires_grad
+    # }
+    # aux_parameters = {
+    #     n
+    #     for n, p in net.named_parameters()
+    #     if n.endswith(".quantiles") and p.requires_grad
+    # }
     parameters = {
         n
         for n, p in net.named_parameters()
-        if not n.endswith(".quantiles") and p.requires_grad
+        if not n.endswith(".quantiles") and p.requires_grad and "prompt" in n
     }
     aux_parameters = {
         n
         for n, p in net.named_parameters()
-        if n.endswith(".quantiles") and p.requires_grad
+        if n.endswith(".quantiles") and p.requires_grad and "prompt" in n
     }
 
     # Make sure we don't have an intersection of parameters
@@ -346,8 +357,13 @@ def main(argv):
         pin_memory=(device == "cuda"),
     )
 
-    net = image_models[args.model](quality=int(args.quality_level))
+    net = image_models[args.model](quality=int(args.quality_level), prompt_config=args)
     net = net.to(device)
+
+    if args.TRANSFER_TYPE == "prompt":
+        for k, p in net.named_parameters():
+            if "prompt" not in k:
+                p.requires_grad = False
 
     optimizer, aux_optimizer = configure_optimizers(net, args)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[200,300], gamma=0.5)
@@ -365,12 +381,12 @@ def main(argv):
                 new_state_dict[name] = v
         else:
             new_state_dict = checkpoint['state_dict']
-        net.load_state_dict(new_state_dict, strict=True)
+        net.load_state_dict(new_state_dict, strict=True if args.TEST else False)
     
     use_parallel=False
-    if args.cuda and torch.cuda.device_count() > 1:
-        net = CustomDataParallel(net)
-        use_parallel = True
+    # if args.cuda and torch.cuda.device_count() > 1:
+    #     net = CustomDataParallel(net)
+    #     use_parallel = True
 
     if args.TEST:
         best_loss = float("inf")
