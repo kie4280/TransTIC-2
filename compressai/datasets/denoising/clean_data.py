@@ -7,6 +7,8 @@ import torchvision.transforms as transforms
 import torch
 
 from typing import Literal, List
+import numpy as np
+from tqdm import tqdm
 
 class GaussianNoise(Dataset):
     def __init__(
@@ -41,17 +43,33 @@ class GaussianNoise(Dataset):
 
     def __getitem__(self, index) -> [Tensor, Tensor]:
         image = Image.open(self.files[index])
+        image = np.asarray(image)
+        print(image.shape)
 
-        if self.transform != None:
-            image = self.transform(image)
+        if len(image.shape) == 2:
+            image = np.expand_dims(image, axis=2)
+        if image.shape[2] == 1:
+            ni = np.zeros((image.shape[0], image.shape[1], 3))
+            print(image.shape)
+            for i in range(3):
+                ni [:, :, i] = image[:, :,0]
+            image = ni
+            Image.fromarray(image, "RGB").save(self.files[index])
+            
+        elif image.shape[2] == 4:
+            print(image.shape)
+            image = image[:, :, 0:3]
+            Image.fromarray(image, "RGB").save(self.files[index])
+        elif image.shape[2] == 3:
+            pass
         else:
-            image = self.default_trans(image)
+            raise ValueError("invalid dimension")
+        
+        
 
         # print(image.shape)
-        gaussian = torch.randn_like(image)
-        lq = image + gaussian / 255.0 * self.sigma
 
-        return lq, image
+        return image
 
 
 class RealNoise(Dataset):
@@ -72,9 +90,11 @@ if __name__ == "__main__":
     
     args = Object()
     args.training_data_path = "/disk2/dataset/"
-    args.training_dataset = ["flicker"]
-    ga = GaussianNoise(args)
+    args.training_dataset = ["WaterlooED"]
+    args.testing_data_path = "/disk2/dataset/test"
+    args.testing_dataset = ["Urban100"]
+    ga = GaussianNoise(args, "test")
 
-    for i, g in ga:
-        if g.shape[0] != 3:
-            print(g.shape)
+    for i in tqdm(range(len(ga))):
+        img = ga[i]
+        print(img.shape)

@@ -31,4 +31,5 @@ from .google import *
 from .waseda import *
 from .tic import *
 from .tic_promptmodel import *
+from .tic_promptmodel_decoder import *
 

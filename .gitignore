@@ -3,4 +3,5 @@
 .DS_Store
 data/
 *.zip
-checkpoints/
+TIC_weight/
+compressai.egg-info/

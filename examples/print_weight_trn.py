@@ -176,7 +176,10 @@ def configure_optimizers(net, args):
     #     for n, p in net.named_parameters()
     #     if n.endswith(".quantiles") and p.requires_grad and "prompt" in n
     # }
-
+    
+    for count, n in enumerate(sorted(parameters)):
+        print(n)
+    print(count+1)
     # Make sure we don't have an intersection of parameters
     params_dict = dict(net.named_parameters())
     # inter_params = parameters & aux_parameters
@@ -412,106 +415,107 @@ def main(argv):
 
     # optimizer, aux_optimizer = configure_optimizers(net, args)
     optimizer = configure_optimizers(net, args)
-    lr_scheduler = optim.lr_scheduler.MultiStepLR(
-        optimizer, milestones=[200, 300], gamma=0.5
-    )
-    criterion = RateDistortionLoss(lmbda=args.lmbda)
 
-    last_epoch = 0
-    if args.checkpoint:  # load from previous checkpoint
-        logging.info("Loading " + str(args.checkpoint))
-        checkpoint = torch.load(args.checkpoint, map_location=device)
-        if list(checkpoint["state_dict"].keys())[0][:7] == "module.":
-            from collections import OrderedDict
+    # lr_scheduler = optim.lr_scheduler.MultiStepLR(
+    #     optimizer, milestones=[200, 300], gamma=0.5
+    # )
+    # criterion = RateDistortionLoss(lmbda=args.lmbda)
 
-            new_state_dict = OrderedDict()
-            for k, v in checkpoint["state_dict"].items():
-                name = k[7:]  # remove `module.`
-                new_state_dict[name] = v
-        else:
-            new_state_dict = checkpoint["state_dict"]
-        net.load_state_dict(new_state_dict, strict=True if args.TEST else False)
-        print('pretrained weight loaded')
+    # last_epoch = 0
+    # if args.checkpoint:  # load from previous checkpoint
+    #     logging.info("Loading " + str(args.checkpoint))
+    #     checkpoint = torch.load(args.checkpoint, map_location=device)
+    #     if list(checkpoint["state_dict"].keys())[0][:7] == "module.":
+    #         from collections import OrderedDict
 
-    use_parallel = False
-    # if args.cuda and torch.cuda.device_count() > 1:
-    #     net = CustomDataParallel(net)
-    #     use_parallel = True
+    #         new_state_dict = OrderedDict()
+    #         for k, v in checkpoint["state_dict"].items():
+    #             name = k[7:]  # remove `module.`
+    #             new_state_dict[name] = v
+    #     else:
+    #         new_state_dict = checkpoint["state_dict"]
+    #     net.load_state_dict(new_state_dict, strict=True if args.TEST else False)
+    #     print('pretrained weight loaded')
 
-    if args.TEST:
-        best_loss = float("inf")
-        tqrange = tqdm.trange(last_epoch, args.epochs)
-        loss = test_epoch(
-            -1, test_dataloader, net, criterion, "test", tqrange, experiment
-        )
-        return
+    # use_parallel = False
+    # # if args.cuda and torch.cuda.device_count() > 1:
+    # #     net = CustomDataParallel(net)
+    # #     use_parallel = True
 
-    best_loss = float("inf")
-    tqrange = tqdm.trange(last_epoch, args.epochs)
-    # loss = test_epoch(0, test_dataloader, net, criterion,'val', tqrange, experiment)
-    for epoch in tqrange:
-        # train_one_epoch(
-        #     net,
-        #     criterion,
-        #     train_dataloader,
-        #     optimizer,
-        #     aux_optimizer,
-        #     epoch,
-        #     args.clip_max_norm,
-        #     experiment,
-        # )
-        train_one_epoch(
-            net,
-            criterion,
-            train_dataloader,
-            optimizer,
-            epoch,
-            args.clip_max_norm,
-            experiment,
-        )
-        loss = test_epoch(
-            epoch, test_dataloader, net, criterion, "val", tqrange, experiment
-        )
-        lr_scheduler.step()
+    # if args.TEST:
+    #     best_loss = float("inf")
+    #     tqrange = tqdm.trange(last_epoch, args.epochs)
+    #     loss = test_epoch(
+    #         -1, test_dataloader, net, criterion, "test", tqrange, experiment
+    #     )
+    #     return
 
-        is_best = loss < best_loss
-        best_loss = min(loss, best_loss)
+    # best_loss = float("inf")
+    # tqrange = tqdm.trange(last_epoch, args.epochs)
+    # # loss = test_epoch(0, test_dataloader, net, criterion,'val', tqrange, experiment)
+    # for epoch in tqrange:
+    #     # train_one_epoch(
+    #     #     net,
+    #     #     criterion,
+    #     #     train_dataloader,
+    #     #     optimizer,
+    #     #     aux_optimizer,
+    #     #     epoch,
+    #     #     args.clip_max_norm,
+    #     #     experiment,
+    #     # )
+    #     train_one_epoch(
+    #         net,
+    #         criterion,
+    #         train_dataloader,
+    #         optimizer,
+    #         epoch,
+    #         args.clip_max_norm,
+    #         experiment,
+    #     )
+    #     loss = test_epoch(
+    #         epoch, test_dataloader, net, criterion, "val", tqrange, experiment
+    #     )
+    #     lr_scheduler.step()
 
-        if args.save:
-            if use_parallel:
-                state_dict = net.module.state_dict()
-            else:
-                state_dict = net.state_dict()
-            # save_checkpoint(
-            #     {
-            #         "epoch": epoch,
-            #         "state_dict": state_dict,
-            #         "loss": loss,
-            #         "optimizer": optimizer.state_dict(),
-            #         "aux_optimizer": aux_optimizer.state_dict(),
-            #         "lr_scheduler": lr_scheduler.state_dict(),
-            #     },
-            #     is_best,
-            #     base_dir,
-            #     filename="checkpoint.pth.tar",
-            # )
-            save_checkpoint(
-                {
-                    "epoch": epoch,
-                    "state_dict": state_dict,
-                    "loss": loss,
-                    "optimizer": optimizer.state_dict(),
-                    "lr_scheduler": lr_scheduler.state_dict(),
-                },
-                is_best,
-                base_dir,
-                filename="checkpoint.pth.tar",
-            )
-            if epoch % 10 == 9:
-                shutil.copyfile(
-                    base_dir + "checkpoint.pth.tar",
-                    base_dir + f"checkpoint_{epoch}.pth.tar",
-                )
+    #     is_best = loss < best_loss
+    #     best_loss = min(loss, best_loss)
+
+    #     if args.save:
+    #         if use_parallel:
+    #             state_dict = net.module.state_dict()
+    #         else:
+    #             state_dict = net.state_dict()
+    #         # save_checkpoint(
+    #         #     {
+    #         #         "epoch": epoch,
+    #         #         "state_dict": state_dict,
+    #         #         "loss": loss,
+    #         #         "optimizer": optimizer.state_dict(),
+    #         #         "aux_optimizer": aux_optimizer.state_dict(),
+    #         #         "lr_scheduler": lr_scheduler.state_dict(),
+    #         #     },
+    #         #     is_best,
+    #         #     base_dir,
+    #         #     filename="checkpoint.pth.tar",
+    #         # )
+    #         save_checkpoint(
+    #             {
+    #                 "epoch": epoch,
+    #                 "state_dict": state_dict,
+    #                 "loss": loss,
+    #                 "optimizer": optimizer.state_dict(),
+    #                 "lr_scheduler": lr_scheduler.state_dict(),
+    #             },
+    #             is_best,
+    #             base_dir,
+    #             filename="checkpoint.pth.tar",
+    #         )
+    #         if epoch % 10 == 9:
+    #             shutil.copyfile(
+    #                 base_dir + "checkpoint.pth.tar",
+    #                 base_dir + f"checkpoint_{epoch}.pth.tar",
+    #             )
 
 
 if __name__ == "__main__":

@@ -6,18 +6,18 @@ torchvision
 pytorch-msssim
 
 [all]
-mypy
-jupyter
-isort
-sphinx
-flake8-bugbear
-black
 pytest-cov
-ipywidgets
-furo
+sphinx
 pytest
 flake8
+furo
+mypy
+ipywidgets
+black
+jupyter
 flake8-comprehensions
+isort
+flake8-bugbear
 
 [dev]
 pytest
