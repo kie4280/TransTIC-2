@@ -223,51 +223,53 @@ def train_one_epoch(
         enumerate(train_dataloader), total=len(train_dataloader), leave=False
     )
     for i, (lq, gt) in tqdm_emu:
-        lq = lq.to(device)
-        gt = gt.to(device)
+        
+        pass
+        # lq = lq.to(device)
+        # gt = gt.to(device)
 
-        optimizer.zero_grad()
-        # aux_optimizer.zero_grad()
+        # optimizer.zero_grad()
+        # # aux_optimizer.zero_grad()
 
-        out_net = model(lq)
+        # out_net = model(lq)
 
-        out_criterion = criterion(out_net, gt)
-        out_criterion["loss"].backward()
-        if clip_max_norm > 0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_max_norm)
-        optimizer.step()
+        # out_criterion = criterion(out_net, gt)
+        # out_criterion["loss"].backward()
+        # if clip_max_norm > 0:
+        #     torch.nn.utils.clip_grad_norm_(model.parameters(), clip_max_norm)
+        # optimizer.step()
 
-        aux_loss = model.aux_loss()
-        # aux_loss.backward()
-        # aux_optimizer.step()
+        # aux_loss = model.aux_loss()
+        # # aux_loss.backward()
+        # # aux_optimizer.step()
 
-        update_txt = f'[{i*gt.shape[0]}/{len(train_dataloader.dataset)}] | Loss: {out_criterion["loss"].item():.3f} | MSE loss: {out_criterion["mse_loss"].item():.5f} | Bpp loss: {out_criterion["bpp_loss"].item():.4f} | Aux loss: {aux_loss.item():.2f}'
-        tqdm_emu.set_postfix_str(update_txt, refresh=True)
+        # update_txt = f'[{i*gt.shape[0]}/{len(train_dataloader.dataset)}] | Loss: {out_criterion["loss"].item():.3f} | MSE loss: {out_criterion["mse_loss"].item():.5f} | Bpp loss: {out_criterion["bpp_loss"].item():.4f} | Aux loss: {aux_loss.item():.2f}'
+        # tqdm_emu.set_postfix_str(update_txt, refresh=True)
 
-        if i < 100:
-            experiment.log_image(
-                torch.clamp(out_net["x_hat"][0], 0, 1).squeeze().cpu().detach().numpy(),
-                f"train_recon_{i}.png",
-                image_channels="first",
-                step=epoch,
-            )
-            experiment.log_image(
-                torch.clamp(lq[0], 0, 1).squeeze().cpu().detach().numpy(),
-                f"train_noise_{i}.png",
-                image_channels="first",
-                step=epoch,
-            )
+        # if i < 100:
+        #     experiment.log_image(
+        #         torch.clamp(out_net["x_hat"][0], 0, 1).squeeze().cpu().detach().numpy(),
+        #         f"train_recon_{i}.png",
+        #         image_channels="first",
+        #         step=epoch,
+        #     )
+        #     experiment.log_image(
+        #         torch.clamp(lq[0], 0, 1).squeeze().cpu().detach().numpy(),
+        #         f"train_noise_{i}.png",
+        #         image_channels="first",
+        #         step=epoch,
+        #     )
 
 
-        experiment.log_metrics(
-            {
-                "train/total_loss": out_criterion["loss"].item(),
-                "train/mse loss": out_criterion["mse_loss"].item(),
-                "train/bpp loss": out_criterion["bpp_loss"].item(),
-                "train/aux loss": aux_loss.item(),
-                "train/psnr": out_criterion["psnr"].item(),
-            }
-        )
+        # experiment.log_metrics(
+        #     {
+        #         "train/total_loss": out_criterion["loss"].item(),
+        #         "train/mse loss": out_criterion["mse_loss"].item(),
+        #         "train/bpp loss": out_criterion["bpp_loss"].item(),
+        #         "train/aux loss": aux_loss.item(),
+        #         "train/psnr": out_criterion["psnr"].item(),
+        #     }
+        # )
 
 
 def test_epoch(

@@ -82,7 +82,6 @@ class RateDistortionLoss(nn.Module):
         out["mse_loss"] = self.mse(output["x_hat"], target)
         # out["loss"] = self.lmbda * 255**2 * out["mse_loss"] + out["bpp_loss"]
         out["loss"] = self.lmbda * 255**2 * out["mse_loss"]
-        # out["rdloss"] = self.lmbda * 255**2 * out["mse_loss"] + out["bpp_loss"]
 
         out["psnr"] = self.psnr(torch.clamp(output["x_hat"], 0, 1), target)
 
@@ -119,16 +118,12 @@ def init(args):
     base_dir = f"{args.root}/{args.exp_name}/{args.quality_level}/"
     os.makedirs(base_dir, exist_ok=True)
 
-    # experiment = Experiment(
-    #     api_key="Comet API Key",
-    #     project_name="Comet Project name",
-    #     workspace="Comet Work Space",
-    # )
     experiment = Experiment(
         api_key="yYMc8zW5lvTWTlpAVGUJNkqHa",
         project_name="DLP Final Project",
         workspace="course",
     )
+
 
     experiment.set_name(f"{args.exp_name}_{args.quality_level}")
     experiment.log_parameters(vars(args))
@@ -156,63 +151,43 @@ def configure_optimizers(net, args):
     """Separate parameters for the main optimizer and the auxiliary optimizer.
     Return two optimizers"""
 
-    # parameters = {
-    #     n
-    #     for n, p in net.named_parameters()
-    #     if not n.endswith(".quantiles") and p.requires_grad
-    # }
-    # aux_parameters = {
-    #     n
-    #     for n, p in net.named_parameters()
-    #     if n.endswith(".quantiles") and p.requires_grad
-    # }
     parameters = {
         n
         for n, p in net.named_parameters()
-        if not n.endswith(".quantiles") and p.requires_grad and "prompt" in n
+        if not n.endswith(".quantiles") and p.requires_grad
     }
-    # aux_parameters = {
-    #     n
-    #     for n, p in net.named_parameters()
-    #     if n.endswith(".quantiles") and p.requires_grad and "prompt" in n
-    # }
+    aux_parameters = {
+        n
+        for n, p in net.named_parameters()
+        if n.endswith(".quantiles") and p.requires_grad
+    }
 
     # Make sure we don't have an intersection of parameters
     params_dict = dict(net.named_parameters())
-    # inter_params = parameters & aux_parameters
-    # union_params = parameters | aux_parameters
+    inter_params = parameters & aux_parameters
+    union_params = parameters | aux_parameters
 
-    # assert len(inter_params) == 0
-    # assert len(union_params) - len(params_dict.keys()) == 0
+    assert len(inter_params) == 0
+    assert len(union_params) - len(params_dict.keys()) == 0
 
     optimizer = optim.Adam(
         (params_dict[n] for n in sorted(parameters)),
         lr=args.learning_rate,
     )
-    # aux_optimizer = optim.Adam(
-    #     (params_dict[n] for n in sorted(aux_parameters)),
-    #     lr=args.aux_learning_rate,
-    # )
+    aux_optimizer = optim.Adam(
+        (params_dict[n] for n in sorted(aux_parameters)),
+        lr=args.aux_learning_rate,
+    )
 
-    # return optimizer, aux_optimizer
-    return optimizer
+    return optimizer, aux_optimizer
 
 
-# def train_one_epoch(
-#     model,
-#     criterion,
-#     train_dataloader,
-#     optimizer,
-#     aux_optimizer,
-#     epoch,
-#     clip_max_norm,
-#     experiment,
-# ):
 def train_one_epoch(
     model,
     criterion,
     train_dataloader,
     optimizer,
+    aux_optimizer,
     epoch,
     clip_max_norm,
     experiment,
@@ -227,7 +202,7 @@ def train_one_epoch(
         gt = gt.to(device)
 
         optimizer.zero_grad()
-        # aux_optimizer.zero_grad()
+        aux_optimizer.zero_grad()
 
         out_net = model(lq)
 
@@ -238,10 +213,10 @@ def train_one_epoch(
         optimizer.step()
 
         aux_loss = model.aux_loss()
-        # aux_loss.backward()
-        # aux_optimizer.step()
+        aux_loss.backward()
+        aux_optimizer.step()
 
-        update_txt = f'[{i*gt.shape[0]}/{len(train_dataloader.dataset)}] | Loss: {out_criterion["loss"].item():.3f} | MSE loss: {out_criterion["mse_loss"].item():.5f} | Bpp loss: {out_criterion["bpp_loss"].item():.4f} | Aux loss: {aux_loss.item():.2f}'
+        update_txt = f'[{i*train_dataloader.batch_size}/{len(train_dataloader.dataset)}] | Loss: {out_criterion["loss"].item():.3f} | MSE loss: {out_criterion["mse_loss"].item():.5f} | Bpp loss: {out_criterion["bpp_loss"].item():.4f} | Aux loss: {aux_loss.item():.2f}'
         tqdm_emu.set_postfix_str(update_txt, refresh=True)
 
         if i < 100:
@@ -252,12 +227,11 @@ def train_one_epoch(
                 step=epoch,
             )
             experiment.log_image(
-                torch.clamp(lq[0], 0, 1).squeeze().cpu().detach().numpy(),
-                f"train_noise_{i}.png",
+                torch.clamp(gt[0], 0, 1).squeeze().cpu().detach().numpy(),
+                f"train_clean_{i}.png",
                 image_channels="first",
                 step=epoch,
             )
-
 
         experiment.log_metrics(
             {
@@ -292,6 +266,7 @@ def test_epoch(
         for i, (lq, gt) in enumerate(test_dataloader):
             lq = lq.to(device)
             gt = gt.to(device)
+
             out_net = model(lq)
             out_criterion = criterion(out_net, gt, True)
 
@@ -314,7 +289,7 @@ def test_epoch(
                 )
                 experiment.log_image(
                     torch.clamp(lq[0], 0, 1).squeeze().cpu().numpy(),
-                    f"{stage}_noise_{i}.png",
+                    f"{stage}_dirty_{i}.png",
                     image_channels="first",
                     step=epoch,
                 )
@@ -386,7 +361,7 @@ def main(argv):
 
     train_transforms = transforms.Compose(
         [
-            transforms.RandomCrop((args.patch_size, args.patch_size), pad_if_needed=True),
+            transforms.RandomCrop((args.patch_size, args.patch_size)),
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
             transforms.ToTensor(),
@@ -394,13 +369,17 @@ def main(argv):
     )
     test_transforms = transforms.Compose(
         [
-            transforms.RandomCrop((args.patch_size, args.patch_size), pad_if_needed=True),
+            transforms.RandomCrop((args.patch_size, args.patch_size)),
             transforms.ToTensor(),
         ]
     )
 
-    train_dataset = GaussianNoise(args, "train", sigma=args.noise_sigma, transform=train_transforms)
-    test_dataset = GaussianNoise(args, "test", sigma=args.noise_sigma, transform=test_transforms)
+    train_dataset = GaussianNoise(
+        args, "train", sigma=args.noise_sigma, transform=train_transforms
+    )
+    test_dataset = GaussianNoise(
+        args, "test", sigma=args.noise_sigma, transform=test_transforms
+    )
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
@@ -421,18 +400,12 @@ def main(argv):
         pin_memory=(device == "cuda"),
     )
 
-    net = image_models[args.model](quality=int(args.quality_level), prompt_config=args)
+    net = image_models[args.model](quality=int(args.quality_level))
     net = net.to(device)
 
-    if args.TRANSFER_TYPE == "prompt":
-        for k, p in net.named_parameters():
-            if "prompt" not in k:
-                p.requires_grad = False
-
-    # optimizer, aux_optimizer = configure_optimizers(net, args)
-    optimizer = configure_optimizers(net, args)
+    optimizer, aux_optimizer = configure_optimizers(net, args)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(
-        optimizer, milestones=[40, 80, 120], gamma=0.5
+        optimizer, milestones=[200, 300], gamma=0.5
     )
     criterion = RateDistortionLoss(lmbda=args.lmbda)
 
@@ -449,13 +422,12 @@ def main(argv):
                 new_state_dict[name] = v
         else:
             new_state_dict = checkpoint["state_dict"]
-        net.load_state_dict(new_state_dict, strict=True if args.TEST else False)
-        print('pretrained weight loaded')
+        net.load_state_dict(new_state_dict, strict=True)
 
     use_parallel = False
-    # if args.cuda and torch.cuda.device_count() > 1:
-    #     net = CustomDataParallel(net)
-    #     use_parallel = True
+    if args.cuda and torch.cuda.device_count() > 1:
+        net = CustomDataParallel(net)
+        use_parallel = True
 
     if args.TEST:
         best_loss = float("inf")
@@ -469,21 +441,12 @@ def main(argv):
     tqrange = tqdm.trange(last_epoch, args.epochs)
     # loss = test_epoch(0, test_dataloader, net, criterion,'val', tqrange, experiment)
     for epoch in tqrange:
-        # train_one_epoch(
-        #     net,
-        #     criterion,
-        #     train_dataloader,
-        #     optimizer,
-        #     aux_optimizer,
-        #     epoch,
-        #     args.clip_max_norm,
-        #     experiment,
-        # )
         train_one_epoch(
             net,
             criterion,
             train_dataloader,
             optimizer,
+            aux_optimizer,
             epoch,
             args.clip_max_norm,
             experiment,
@@ -501,25 +464,13 @@ def main(argv):
                 state_dict = net.module.state_dict()
             else:
                 state_dict = net.state_dict()
-            # save_checkpoint(
-            #     {
-            #         "epoch": epoch,
-            #         "state_dict": state_dict,
-            #         "loss": loss,
-            #         "optimizer": optimizer.state_dict(),
-            #         "aux_optimizer": aux_optimizer.state_dict(),
-            #         "lr_scheduler": lr_scheduler.state_dict(),
-            #     },
-            #     is_best,
-            #     base_dir,
-            #     filename="checkpoint.pth.tar",
-            # )
             save_checkpoint(
                 {
                     "epoch": epoch,
                     "state_dict": state_dict,
                     "loss": loss,
                     "optimizer": optimizer.state_dict(),
+                    "aux_optimizer": aux_optimizer.state_dict(),
                     "lr_scheduler": lr_scheduler.state_dict(),
                 },
                 is_best,

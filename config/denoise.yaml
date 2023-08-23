@@ -1,13 +1,13 @@
-model: "tic_promptmodel_first2"
+model: "tic_promptmodel_decoder"
 training_data_path: /disk2/dataset/
-training_dataset: [ "BSD400", "DIV2K", "Flickr2K", "flicker", "WaterlooED"] # ["BSD400", "DIV2K", "Flickr2K", "WaterlooED", "flicker"]
+training_dataset: [ "BSD400", "DIV2K", "Flickr2K", "flicker_2W_images", "WaterlooED"] # ["BSD400", "DIV2K", "Flickr2K", "WaterlooED", "flicker"]
 testing_data_path: /disk2/dataset/test/
 testing_dataset: ["Urban100"]
-epochs: 400
+epochs: 150
 learning_rate: 1.e-4
-num_workers: 0
-quality_level: 1 # {1,2,3,4}
-lmbda: 0.0018 # {0.0018, 0.0035, 0.0067, 0.013}
+num_workers: 4
+quality_level: 4 # {1,2,3,4}
+lmbda: 0.013 # {0.0018, 0.0035, 0.0067, 0.013}
 batch_size: 8
 test_batch_size: 1
 aux_learning_rate: 1.e-3
@@ -18,9 +18,9 @@ save: True
 clip_max_norm: 1.0
 root: "/disk2/finalproject_team22_record/"
 name: "NAME"
-exp_name: "full_TransTIC"
+exp_name: "Half_TransTIC_lamda0.013"
 seed: 42
-checkpoint: '/disk2/finalproject_team22/TransTIC/TIC_weight/1/base_codec_1.pth.tar'
+checkpoint: '/disk2/finalproject_team22/TransTIC/TIC_weight/4/base_codec_4.pth.tar'
 LOCATION: "prepend"
 DEEP: True
 NUM_TOKENS: 16
@@ -29,11 +29,12 @@ PROJECT: -1
 DROPOUT: 0.
 TRANSFER_TYPE: "prompt"
 ARCHITECT: "both"
-VPT_lmbda: 0.0018
+VPT_lmbda: 0.013
 WINDOW: "same"
 HYPERPRIOR: False
 RETURN_ATTENTION: False
 MODEL_DECODER: False
 MASK_DOWNSAMPLE: 2
 DECODER_BLOCK: [1, 2, 3, 4]
-TEST: True
+TEST: False
+noise_sigma: 25

@@ -1,23 +1,26 @@
 model: "tic_hp"
-dataset: "flicker"
-dataset_path: "/disk2/dataset/flicker"
-kodak_path: "/disk2/dataset/kodak"
+training_data_path: /disk2/dataset/
+training_dataset: [ "BSD400", "DIV2K", "Flickr2K", "flicker_2W_images", "WaterlooED"] # ["BSD400", "DIV2K", "Flickr2K", "WaterlooED", "flicker"]
+testing_data_path: /disk2/dataset/test/
+testing_dataset: ["Urban100"]
 epochs: 400
 learning_rate: 1.e-4
 num_workers: 4
 quality_level: 4 # {1,2,3,4}
 lmbda: 0.013 # {0.0018, 0.0035, 0.0067, 0.013}
-batch_size: 12
+batch_size: 8
 test_batch_size: 1
 aux_learning_rate: 1.e-3
 patch_size: 256
 cuda: True
+noise_sigma: 25
 gpu_id: 0
 save: True
 clip_max_norm: 1.0
-root: "/disk2/finalproject"
+root: "/disk2/finalproject_team22_record/"
 name: "NAME"
-exp_name: "comet experiment name"
+exp_name: "baseline_lamda0.013"
 seed: 42
-checkpoint:
-TEST: False
+checkpoint: '/disk2/finalproject_team22/TransTIC/TIC_weight/4/base_codec_4.pth.tar'
+TEST: True
+

@@ -9,6 +9,10 @@ import torch
 from typing import Literal, List
 import numpy as np
 from tqdm import tqdm
+import os
+
+
+total = 0
 
 class GaussianNoise(Dataset):
     def __init__(
@@ -16,6 +20,7 @@ class GaussianNoise(Dataset):
         args,
         mode: Literal["train", "test"] = "train",
         sigma: float = 15,
+        overwrite = False,
         transform=None,
     ) -> None:
         super().__init__()
@@ -36,6 +41,7 @@ class GaussianNoise(Dataset):
         self.sigma = sigma
         self.transform = transform
         self.mode = mode
+        self.overwrite = overwrite
         self.default_trans = transforms.ToTensor()
 
     def __len__(self):
@@ -44,7 +50,7 @@ class GaussianNoise(Dataset):
     def __getitem__(self, index) -> [Tensor, Tensor]:
         image = Image.open(self.files[index])
         image = np.asarray(image)
-        print(image.shape)
+        global total
 
         if len(image.shape) == 2:
             image = np.expand_dims(image, axis=2)
@@ -54,12 +60,18 @@ class GaussianNoise(Dataset):
             for i in range(3):
                 ni [:, :, i] = image[:, :,0]
             image = ni
-            Image.fromarray(image, "RGB").save(self.files[index])
+            if self.overwrite:
+                # Image.fromarray(image, "RGB").save(self.files[index])
+                os.remove(self.files[index])
+                total += 1
             
         elif image.shape[2] == 4:
             print(image.shape)
             image = image[:, :, 0:3]
-            Image.fromarray(image, "RGB").save(self.files[index])
+            if self.overwrite:
+                # Image.fromarray(image, "RGB").save(self.files[index])
+                os.remove(self.files[index])
+                total += 1
         elif image.shape[2] == 3:
             pass
         else:
@@ -90,11 +102,12 @@ if __name__ == "__main__":
     
     args = Object()
     args.training_data_path = "/disk2/dataset/"
-    args.training_dataset = ["WaterlooED"]
+    args.training_dataset = ["flicker_2W_images"]
     args.testing_data_path = "/disk2/dataset/test"
     args.testing_dataset = ["Urban100"]
-    ga = GaussianNoise(args, "test")
+    ga = GaussianNoise(args, "train", overwrite=True)
 
     for i in tqdm(range(len(ga))):
         img = ga[i]
-        print(img.shape)
+        # print(img.shape)
+    print(total)
