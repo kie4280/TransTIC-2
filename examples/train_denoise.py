@@ -432,7 +432,7 @@ def main(argv):
     # optimizer, aux_optimizer = configure_optimizers(net, args)
     optimizer = configure_optimizers(net, args)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(
-        optimizer, milestones=[40, 80, 120], gamma=0.5
+        optimizer, milestones=args.milestones, gamma=0.5
     )
     criterion = RateDistortionLoss(lmbda=args.lmbda)
 
@@ -526,11 +526,15 @@ def main(argv):
                 base_dir,
                 filename="checkpoint.pth.tar",
             )
-            if epoch % 10 == 9:
-                shutil.copyfile(
-                    base_dir + "checkpoint.pth.tar",
-                    base_dir + f"checkpoint_{epoch}.pth.tar",
-                )
+            # if epoch % 10 == 9:
+            #     shutil.copyfile(
+            #         base_dir + "checkpoint.pth.tar",
+            #         base_dir + f"checkpoint_{epoch}.pth.tar",
+            #     )
+            shutil.copyfile(
+                base_dir + "checkpoint.pth.tar",
+                base_dir + f"checkpoint_{epoch}.pth.tar",
+            )
 
 
 if __name__ == "__main__":
