@@ -394,7 +394,7 @@ def main(argv):
     )
     test_transforms = transforms.Compose(
         [
-            transforms.RandomCrop((args.patch_size, args.patch_size), pad_if_needed=True),
+            transforms.CenterCrop((args.patch_size, args.patch_size)),
             transforms.ToTensor(),
         ]
     )
